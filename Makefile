@@ -1977,5 +1977,7 @@ FORCE:
 # information in a variable so we can use it in if_changed and friends.
 .PHONY: $(PHONY)
 FROCE += LINUX
-# Declares of the LINUX varible as linux.  We keep that 
+# Declares of the LINUX varibale as linux.  We keep that 
 .LINUX: $(LINUX)
+# This variable declares which distro the user is using.  We keep that
+.DISTRO: $(DISTRO)
