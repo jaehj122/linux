@@ -9,21 +9,21 @@ config EXT3_FS
 	  This config option is here only for backward compatibility. ext3
 	  filesystem is now handled by the ext4 driver.
 
-config EXT3_FS_POSIX_ACL
-	bool "Ext3 POSIX Access Control Lists"
-	depends on EXT3_FS
-	select EXT4_FS_POSIX_ACL
-	select FS_POSIX_ACL
-	help
-	  This config option is here only for backward compatibility. ext3
+ # config EXT3_FS_POSIX_ACL
+	# bool "Ext3 POSIX Access Control Lists"
+	# depends on EXT3_FS
+	# select EXT4_FS_POSIX_ACL
+	# select FS_POSIX_ACL
+	# help
+	 #  This config option is here only for backward compatibility. ext3
 	  filesystem is now handled by the ext4 driver.
 
-config EXT3_FS_SECURITY
-	bool "Ext3 Security Labels"
-	depends on EXT3_FS
-	select EXT4_FS_SECURITY
-	help
-	  This config option is here only for backward compatibility. ext3
+ # config EXT3_FS_SECURITY
+	# bool "Ext3 Security Labels"
+	# depends on EXT3_FS
+	# select EXT4_FS_SECURITY
+	# help
+	 # This config option is here only for backward compatibility. ext3
 	  filesystem is now handled by the ext4 driver.
 
 config EXT4_FS
@@ -81,7 +81,7 @@ config EXT4_FS_POSIX_ACL
 	  If you don't know what Access Control Lists are, say N
 
 config EXT4_FS_SECURITY
-	bool "Ext4 Security Labels"
+	bool "Extend4 Security Labels"
 	depends on EXT4_FS
 	help
 	  Security labels support alternative access control models
