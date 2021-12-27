@@ -2,7 +2,7 @@
 VERSION = 5
 PATCHLEVEL = 16
 SUBLEVEL = 0
-EXTRAVERSION = -rc7
+EXTRAVERSION = -rc8
 NAME = Gobble Gobble
 
 # *DOCUMENTATION*
@@ -96,7 +96,7 @@ endif
 
 ifneq ($(findstring s,$(filter-out --%,$(MAKEFLAGS))),)
   quiet=silent_
-  KBUILD_VERBOSE = 0
+  KBUILD_VERBOSE = 1
 endif
 
 export quiet Q KBUILD_VERBOSE
@@ -115,7 +115,7 @@ ifeq ("$(origin C)", "command line")
   KBUILD_CHECKSRC = $(C)
 endif
 ifndef KBUILD_CHECKSRC
-  KBUILD_CHECKSRC = 0
+  KBUILD_CHECKSRC = 1
 endif
 
 export KBUILD_CHECKSRC
@@ -1976,3 +1976,6 @@ FORCE:
 # Declare the contents of the PHONY variable as phony.  We keep that
 # information in a variable so we can use it in if_changed and friends.
 .PHONY: $(PHONY)
+FROCE += LINUX
+# Declares of the LINUX varible as linux.  We keep that 
+.LINUX: $(LINUX)
