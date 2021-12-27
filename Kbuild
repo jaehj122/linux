@@ -3,7 +3,7 @@
 # Kbuild for top-level directory of the kernel
 
 #####
-# Generate bounds.h
+ Generate bounds.h
 
 bounds-file := include/generated/bounds.h
 
@@ -14,7 +14,7 @@ $(bounds-file): kernel/bounds.s FORCE
 	$(call filechk,offsets,__LINUX_BOUNDS_H__)
 
 #####
-# Generate timeconst.h
+ Generate timeconst.h
 
 timeconst-file := include/generated/timeconst.h
 
@@ -24,7 +24,7 @@ $(timeconst-file): kernel/time/timeconst.bc FORCE
 	$(call filechk,gentimeconst)
 
 #####
-# Generate asm-offsets.h
+ Generate asm-offsets.h
 
 offsets-file := include/generated/asm-offsets.h
 
@@ -37,7 +37,7 @@ $(offsets-file): arch/$(SRCARCH)/kernel/asm-offsets.s FORCE
 	$(call filechk,offsets,__ASM_OFFSETS_H__)
 
 #####
-# Check for missing system calls
+ Check for missing system calls
 
 always-y += missing-syscalls
 
@@ -48,7 +48,7 @@ missing-syscalls: scripts/checksyscalls.sh $(offsets-file) FORCE
 	$(call cmd,syscalls)
 
 #####
-# Check atomic headers are up-to-date
+ Check atomic headers are up-to-date
 
 always-y += old-atomics
 
