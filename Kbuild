@@ -3,7 +3,7 @@
 # Kbuild for top-level directory of the kernel
 
 #####
-# Generate bounds.h
+ Generate bounds.h
 
 bounds-file := include/generated/bounds.h
 
@@ -24,7 +24,7 @@ $(timeconst-file): kernel/time/timeconst.bc FORCE
 	$(call filechk,gentimeconst)
 
 #####
-# Generate asm-offsets.h
+ Generate asm-offsets.h
 
 offsets-file := include/generated/asm-offsets.h
 
