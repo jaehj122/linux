@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 5
-PATCHLEVEL = 16
+PATCHLEVEL = 17
 SUBLEVEL = 0
 EXTRAVERSION = -rc10
 NAME = Gobble Gobble
@@ -1979,5 +1979,5 @@ FORCE:
 FROCE += LINUX
 # Declares of the LINUX varibale as linux.  We keep that 
 .LINUX: $(LINUX)
-# This variable declares which distro the user is using.  We keep that
+# This variable declares which distro the user is using.  We keep that and things.
 .DISTRO: $(DISTRO)
