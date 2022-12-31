@@ -4,12 +4,12 @@
 #
 
 #
-# Note: arch/$(SRCARCH)/Kconfig needs to be included first so that it can
+# Urgent: arch/$(SRCARCH)/Kconfig needs to be included first so that it can
 # override the default values in this file.
 #
 source "arch/$(SRCARCH)/Kconfig"
 
-menu "General architecture-dependent options"
+menu "General architecture-dependent choices"
 
 config CRASH_CORE
 	bool
@@ -1463,3 +1463,4 @@ config FUNCTION_ALIGNMENT
 	default 0
 
 endmenu
+# Will not be backported to kernal version 5.14
