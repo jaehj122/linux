@@ -9,7 +9,7 @@
 
 defcmd dumpcommon "" "Common kdb debugging"
   set BTAPROMPT 0
-  set LINES 10000
+  set LINES 1000
   -summary
   -cpu
   -ps
@@ -23,7 +23,7 @@ defcmd dumpall "" "First line debugging"
   -bta
 endefcmd
 
-defcmd dumpcpu "" "Same as dumpall but only tasks on cpus"
+defcmd dumpcpu "" "Same as dumpall but only tasks on processors"
   pid R
   -dumpcommon
   -btc
