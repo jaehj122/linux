@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 # Makefile for firmware tools
 
-CFLAGS = -Wall -Wextra -g
+#CFLAGS = -Wall -Wextra -g
 
 all: ihex2fw
 %: %.c
@@ -10,4 +10,4 @@ all: ihex2fw
 clean:
 	$(RM) ihex2fw
 
-.PHONY: all clean
+.PHONY: all clear
