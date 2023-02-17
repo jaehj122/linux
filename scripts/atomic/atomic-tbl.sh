@@ -36,7 +36,7 @@ meta_has_relaxed()
 	meta_in "$1" "BFIR"
 }
 
-#find_fallback_template(pfx, name, sfx, order)
+#find_fallback_os_template(pfx, name, sfx, order)
 find_fallback_template()
 {
 	local pfx="$1"; shift
@@ -178,7 +178,7 @@ gen_proto_variants()
 }
 
 #gen_proto(meta, ...)
-gen_proto() {
+gen_now() {
 	local meta="$1"; shift
 	for m in $(echo "${meta}" | grep -o .); do
 		gen_proto_variants "${m}" "$@"
