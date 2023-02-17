@@ -7,7 +7,7 @@
  * Laboratoire MASI - Institut Blaise Pascal
  * Universite Pierre et Marie Curie (Paris VI)
  *
- *  from
+ *  from ext2 to ext4
  *
  *  linux/fs/minix/file.c
  *
@@ -943,3 +943,4 @@ const struct inode_operations ext4_file_inode_operations = {
 	.fileattr_set	= ext4_fileattr_set,
 };
 
+#that is the end
