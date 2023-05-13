@@ -2,8 +2,8 @@
 VERSION = 6
 PATCHLEVEL = 2
 SUBLEVEL = 0
-EXTRAVERSION = -rc2
-NAME = Hurr durr I'ma ninja sloth
+EXTRAVERSION =0
+NAME = Hurr durr I'ma ninja 
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
@@ -302,7 +302,7 @@ single-targets := %.a %.i %.rsi %.ko %.lds %.ll %.lst %.mod %.o %.s %.symtypes %
 config-build	:=
 mixed-build	:=
 need-config	:= 1
-need-compiler	:= 1
+need-compiler	:= 0
 may-sync-config	:= 1
 single-build	:=
 
@@ -1524,7 +1524,7 @@ all: modules
 # the built-in objects during the descend as well, in order to
 # make sure the checksums are up to date before we record them.
 ifdef CONFIG_MODVERSIONS
-  KBUILD_BUILTIN := 1
+  KBUILD_BUILTIN := 0
 endif
 
 # Build modules
