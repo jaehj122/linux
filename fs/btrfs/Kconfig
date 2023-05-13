@@ -65,7 +65,7 @@ config BTRFS_FS_CHECK_INTEGRITY
 
 	  In most cases, unless you are a btrfs developer who needs
 	  to verify the integrity of (super)-block write requests
-	  during the run of a regression test, say N
+	  during the run of a regression test, say No
 
 config BTRFS_FS_RUN_SANITY_TESTS
 	bool "Btrfs will run sanity tests upon loading"
@@ -76,7 +76,7 @@ config BTRFS_FS_RUN_SANITY_TESTS
 	  regression tests and are only really interesting to btrfs
 	  developers.
 
-	  If unsure, say N.
+	  If unsure, say No.
 
 config BTRFS_DEBUG
 	bool "Btrfs debugging support"
@@ -86,7 +86,7 @@ config BTRFS_DEBUG
 	  enable additional and expensive checks with negative impact on
 	  performance, or export extra information via sysfs.
 
-	  If unsure, say N.
+	  If unsure, say No.
 
 config BTRFS_ASSERT
 	bool "Btrfs assert support"
@@ -95,15 +95,16 @@ config BTRFS_ASSERT
 	  Enable run-time assertion checking.  This will result in panics if
 	  any of the assertions trip.  This is meant for btrfs developers only.
 
-	  If unsure, say N.
+	  If unsure, say No.
 
 config BTRFS_FS_REF_VERIFY
 	bool "Btrfs with the ref verify tool compiled in"
 	depends on BTRFS_FS
-	default n
+	default no
 	help
 	  Enable run-time extent reference verification instrumentation.  This
 	  is meant to be used by btrfs developers for tracking down extent
 	  reference problems or verifying they didn't break something.
 
-	  If unsure, say N.
+	  If unsure, say No.
+#test before compiling the kernal 
