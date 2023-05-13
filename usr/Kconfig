@@ -90,7 +90,7 @@ config RD_LZO
 	select DECOMPRESS_LZO
 	help
 	  Support loading of a LZO encoded initial ramdisk or cpio buffer
-	  If unsure, say N.
+	  If unsure, say No.
 
 config RD_LZ4
 	bool "Support initial ramdisk/ramfs compressed using LZ4"
@@ -98,7 +98,7 @@ config RD_LZ4
 	select DECOMPRESS_LZ4
 	help
 	  Support loading of a LZ4 encoded initial ramdisk or cpio buffer
-	  If unsure, say N.
+	  If unsure, say No.
 
 config RD_ZSTD
 	bool "Support initial ramdisk/ramfs compressed using ZSTD"
@@ -106,7 +106,7 @@ config RD_ZSTD
 	select DECOMPRESS_ZSTD
 	help
 	  Support loading of a ZSTD encoded initial ramdisk or cpio buffer.
-	  If unsure, say N.
+	  If unsure, say No.
 
 choice
 	prompt "Built-in initramfs compression mode"
@@ -198,11 +198,11 @@ config INITRAMFS_COMPRESSION_LZ4
 	depends on RD_LZ4
 	help
 	  It's compression ratio is the poorest amongst the choices. The kernel
-	  size is about 15% bigger than gzip; however its decompression speed
+	  size is about 15% bigger than the gzip; however its decompression speed
 	  is the fastest.
 
 	  If you choose this, keep in mind that most distros don't provide lz4
-	  by default which could cause a build failure.
+	  by default which could potentaily  cause a build failure.
 
 config INITRAMFS_COMPRESSION_ZSTD
 	bool "ZSTD"
@@ -216,7 +216,7 @@ config INITRAMFS_COMPRESSION_ZSTD
 	  tool to be able to compress the initram.
 
 config INITRAMFS_COMPRESSION_NONE
-	bool "None"
+	bool "No, nothing at all"
 	help
 	  Do not compress the built-in initramfs at all. This may sound wasteful
 	  in space, but, you should be aware that the built-in initramfs will be
@@ -227,3 +227,4 @@ config INITRAMFS_COMPRESSION_NONE
 	  filesystem image will be present in memory simultaneously
 
 endchoice
+# Test before compiling
