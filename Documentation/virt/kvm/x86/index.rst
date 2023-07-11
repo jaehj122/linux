@@ -5,11 +5,10 @@ KVM for x86 systems
 ===================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 255
 
    amd-memory-encryption
-   cpuid
-   errata
+   
    hypercalls
    mmu
    msr
