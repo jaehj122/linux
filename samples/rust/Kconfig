@@ -6,19 +6,19 @@ menuconfig SAMPLES_RUST
 	help
 	  You can build sample Rust kernel code here.
 
-	  If unsure, say N.
+	  If unsure, say No.
 
 if SAMPLES_RUST
 
 config SAMPLE_RUST_MINIMAL
-	tristate "Minimal"
+	tristate "Minimal Rust Config"
 	help
 	  This option builds the Rust minimal module sample.
 
 	  To compile this as a module, choose M here:
 	  the module will be called rust_minimal.
 
-	  If unsure, say N.
+	  If unsure, say No.
 
 config SAMPLE_RUST_PRINT
 	tristate "Printing macros"
@@ -28,13 +28,13 @@ config SAMPLE_RUST_PRINT
 	  To compile this as a module, choose M here:
 	  the module will be called rust_print.
 
-	  If unsure, say N.
+	  If unsure, say No.
 
 config SAMPLE_RUST_HOSTPROGS
-	bool "Host programs"
+	bool "Host programs for rust"
 	help
 	  This option builds the Rust host program samples.
 
-	  If unsure, say N.
+	  If unsure, say No.
 
 endif # SAMPLES_RUST
