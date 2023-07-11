@@ -8,7 +8,8 @@ KVM for x86 systems
    :maxdepth: 255
 
    amd-memory-encryption
-   
+   cpuid
+   errata
    hypercalls
    mmu
    msr
