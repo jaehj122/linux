@@ -371,6 +371,21 @@ static struct break_hook kprobes_break_ss_hook = {
 	.fn = kprobe_breakpoint_ss_handler,
 };
 
+static int __kprobes
+kretprobe_breakpoint_handler(struct pt_regs *regs, unsigned long esr)
+{
+	if (regs->pc != (unsigned long)__kretprobe_trampoline)
+		return DBG_HOOK_ERROR;
+
+	regs->pc = kretprobe_trampoline_handler(regs, (void *)regs->regs[29]);
+	return DBG_HOOK_HANDLED;
+}
+
+static struct break_hook kretprobes_break_hook = {
+	.imm = KRETPROBES_BRK_IMM,
+	.fn = kretprobe_breakpoint_handler,
+};
+
 /*
  * Provide a blacklist of symbols identifying ranges which cannot be kprobed.
  * This blacklist is exposed to userspace via debugfs (kprobes/blacklist).
@@ -387,10 +402,6 @@ int __init arch_populate_kprobe_blacklist(void)
 					(unsigned long)__irqentry_text_end);
 	if (ret)
 		return ret;
-	ret = kprobe_add_area_blacklist((unsigned long)__idmap_text_start,
-					(unsigned long)__idmap_text_end);
-	if (ret)
-		return ret;
 	ret = kprobe_add_area_blacklist((unsigned long)__hyp_text_start,
 					(unsigned long)__hyp_text_end);
 	if (ret || is_kernel_in_hyp_mode())
@@ -398,11 +409,6 @@ int __init arch_populate_kprobe_blacklist(void)
 	ret = kprobe_add_area_blacklist((unsigned long)__hyp_idmap_text_start,
 					(unsigned long)__hyp_idmap_text_end);
 	return ret;
-}
-
-void __kprobes __used *trampoline_probe_handler(struct pt_regs *regs)
-{
-	return (void *)kretprobe_trampoline_handler(regs, (void *)regs->regs[29]);
 }
 
 void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
@@ -424,6 +430,7 @@ int __init arch_init_kprobes(void)
 {
 	register_kernel_break_hook(&kprobes_break_hook);
 	register_kernel_break_hook(&kprobes_break_ss_hook);
+	register_kernel_break_hook(&kretprobes_break_hook);
 
 	return 0;
 }

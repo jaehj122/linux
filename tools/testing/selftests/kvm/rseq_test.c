@@ -41,18 +41,6 @@ static void guest_code(void)
 		GUEST_SYNC(0);
 }
 
-/*
- * We have to perform direct system call for getcpu() because it's
- * not available until glic 2.29.
- */
-static void sys_getcpu(unsigned *cpu)
-{
-	int r;
-
-	r = syscall(__NR_getcpu, cpu, NULL, NULL);
-	TEST_ASSERT(!r, "getcpu failed, errno = %d (%s)", errno, strerror(errno));
-}
-
 static int next_cpu(int cpu)
 {
 	/*
@@ -249,13 +237,15 @@ int main(int argc, char *argv[])
 			 * across the seq_cnt reads.
 			 */
 			smp_rmb();
-			sys_getcpu(&cpu);
+			r = sys_getcpu(&cpu, NULL);
+			TEST_ASSERT(!r, "getcpu failed, errno = %d (%s)",
+				    errno, strerror(errno));
 			rseq_cpu = rseq_current_cpu_raw();
 			smp_rmb();
 		} while (snapshot != atomic_read(&seq_cnt));
 
 		TEST_ASSERT(rseq_cpu == cpu,
-			    "rseq CPU = %d, sched CPU = %d\n", rseq_cpu, cpu);
+			    "rseq CPU = %d, sched CPU = %d", rseq_cpu, cpu);
 	}
 
 	/*
@@ -266,7 +256,7 @@ int main(int argc, char *argv[])
 	 * migrations given the 1us+ delay in the migration task.
 	 */
 	TEST_ASSERT(i > (NR_TASK_MIGRATIONS / 2),
-		    "Only performed %d KVM_RUNs, task stalled too much?\n", i);
+		    "Only performed %d KVM_RUNs, task stalled too much?", i);
 
 	pthread_join(migration_thread, NULL);
 

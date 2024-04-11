@@ -339,9 +339,9 @@ static int ssb_bus_match(struct device *dev, struct device_driver *drv)
 	return 0;
 }
 
-static int ssb_device_uevent(struct device *dev, struct kobj_uevent_env *env)
+static int ssb_device_uevent(const struct device *dev, struct kobj_uevent_env *env)
 {
-	struct ssb_device *ssb_dev = dev_to_ssb_dev(dev);
+	const struct ssb_device *ssb_dev = dev_to_ssb_dev(dev);
 
 	if (!dev)
 		return -ENODEV;
@@ -384,7 +384,7 @@ static struct attribute *ssb_device_attrs[] = {
 };
 ATTRIBUTE_GROUPS(ssb_device);
 
-static struct bus_type ssb_bustype = {
+static const struct bus_type ssb_bustype = {
 	.name		= "ssb",
 	.match		= ssb_bus_match,
 	.probe		= ssb_device_probe,
@@ -837,7 +837,7 @@ static u32 clkfactor_f6_resolve(u32 v)
 	case SSB_CHIPCO_CLK_F6_7:
 		return 7;
 	}
-	return 0;
+	return 1;
 }
 
 /* Calculate the speed the backplane would run at a given set of clockcontrol values */

@@ -19,6 +19,7 @@
 #include <linux/proc_fs.h>
 #include <linux/sched.h>
 #include <linux/seq_file.h>
+#include <linux/pm.h>
 #include <linux/poll.h>
 #include <linux/device.h>
 #include <linux/kstrtox.h>
@@ -189,6 +190,7 @@ static int input_handle_abs_event(struct input_dev *dev,
 				  unsigned int code, int *pval)
 {
 	struct input_mt *mt = dev->mt;
+	bool is_new_slot = false;
 	bool is_mt_event;
 	int *pold;
 
@@ -209,6 +211,7 @@ static int input_handle_abs_event(struct input_dev *dev,
 		pold = &dev->absinfo[code].value;
 	} else if (mt) {
 		pold = &mt->slots[mt->slot].abs[code - ABS_MT_FIRST];
+		is_new_slot = mt->slot != dev->absinfo[ABS_MT_SLOT].value;
 	} else {
 		/*
 		 * Bypass filtering for multi-touch events when
@@ -227,8 +230,8 @@ static int input_handle_abs_event(struct input_dev *dev,
 	}
 
 	/* Flush pending "slot" event */
-	if (is_mt_event && mt && mt->slot != input_abs_get_val(dev, ABS_MT_SLOT)) {
-		input_abs_set_val(dev, ABS_MT_SLOT, mt->slot);
+	if (is_new_slot) {
+		dev->absinfo[ABS_MT_SLOT].value = mt->slot;
 		return INPUT_PASS_TO_HANDLERS | INPUT_SLOT;
 	}
 
@@ -702,7 +705,7 @@ void input_close_device(struct input_handle *handle)
 
 	__input_release_device(handle);
 
-	if (!dev->inhibited && !--dev->users) {
+	if (!--dev->users && !dev->inhibited) {
 		if (dev->poller)
 			input_dev_poller_stop(dev->poller);
 		if (dev->close)
@@ -1362,8 +1365,8 @@ static ssize_t input_dev_show_##name(struct device *dev,		\
 {									\
 	struct input_dev *input_dev = to_input_dev(dev);		\
 									\
-	return scnprintf(buf, PAGE_SIZE, "%s\n",			\
-			 input_dev->name ? input_dev->name : "");	\
+	return sysfs_emit(buf, "%s\n",					\
+			  input_dev->name ? input_dev->name : "");	\
 }									\
 static DEVICE_ATTR(name, S_IRUGO, input_dev_show_##name, NULL)
 
@@ -1372,7 +1375,7 @@ INPUT_DEV_STRING_ATTR_SHOW(phys);
 INPUT_DEV_STRING_ATTR_SHOW(uniq);
 
 static int input_print_modalias_bits(char *buf, int size,
-				     char name, unsigned long *bm,
+				     char name, const unsigned long *bm,
 				     unsigned int min_bit, unsigned int max_bit)
 {
 	int len = 0, i;
@@ -1384,7 +1387,7 @@ static int input_print_modalias_bits(char *buf, int size,
 	return len;
 }
 
-static int input_print_modalias(char *buf, int size, struct input_dev *id,
+static int input_print_modalias(char *buf, int size, const struct input_dev *id,
 				int add_cr)
 {
 	int len;
@@ -1432,7 +1435,7 @@ static ssize_t input_dev_show_modalias(struct device *dev,
 }
 static DEVICE_ATTR(modalias, S_IRUGO, input_dev_show_modalias, NULL);
 
-static int input_print_bitmap(char *buf, int buf_size, unsigned long *bitmap,
+static int input_print_bitmap(char *buf, int buf_size, const unsigned long *bitmap,
 			      int max, int add_cr);
 
 static ssize_t input_dev_show_properties(struct device *dev,
@@ -1455,7 +1458,7 @@ static ssize_t inhibited_show(struct device *dev,
 {
 	struct input_dev *input_dev = to_input_dev(dev);
 
-	return scnprintf(buf, PAGE_SIZE, "%d\n", input_dev->inhibited);
+	return sysfs_emit(buf, "%d\n", input_dev->inhibited);
 }
 
 static ssize_t inhibited_store(struct device *dev,
@@ -1502,7 +1505,7 @@ static ssize_t input_dev_show_id_##name(struct device *dev,		\
 					char *buf)			\
 {									\
 	struct input_dev *input_dev = to_input_dev(dev);		\
-	return scnprintf(buf, PAGE_SIZE, "%04x\n", input_dev->id.name);	\
+	return sysfs_emit(buf, "%04x\n", input_dev->id.name);		\
 }									\
 static DEVICE_ATTR(name, S_IRUGO, input_dev_show_id_##name, NULL)
 
@@ -1524,7 +1527,7 @@ static const struct attribute_group input_dev_id_attr_group = {
 	.attrs	= input_dev_id_attrs,
 };
 
-static int input_print_bitmap(char *buf, int buf_size, unsigned long *bitmap,
+static int input_print_bitmap(char *buf, int buf_size, const unsigned long *bitmap,
 			      int max, int add_cr)
 {
 	int i;
@@ -1621,7 +1624,7 @@ static void input_dev_release(struct device *device)
  * device bitfields.
  */
 static int input_add_uevent_bm_var(struct kobj_uevent_env *env,
-				   const char *name, unsigned long *bitmap, int max)
+				   const char *name, const unsigned long *bitmap, int max)
 {
 	int len;
 
@@ -1639,7 +1642,7 @@ static int input_add_uevent_bm_var(struct kobj_uevent_env *env,
 }
 
 static int input_add_uevent_modalias_var(struct kobj_uevent_env *env,
-					 struct input_dev *dev)
+					 const struct input_dev *dev)
 {
 	int len;
 
@@ -1677,9 +1680,9 @@ static int input_add_uevent_modalias_var(struct kobj_uevent_env *env,
 			return err;					\
 	} while (0)
 
-static int input_dev_uevent(struct device *device, struct kobj_uevent_env *env)
+static int input_dev_uevent(const struct device *device, struct kobj_uevent_env *env)
 {
-	struct input_dev *dev = to_input_dev(device);
+	const struct input_dev *dev = to_input_dev(device);
 
 	INPUT_ADD_HOTPLUG_VAR("PRODUCT=%x/%x/%x/%x",
 				dev->id.bustype, dev->id.vendor,
@@ -1828,7 +1831,6 @@ out:
 	return ret;
 }
 
-#ifdef CONFIG_PM_SLEEP
 static int input_dev_suspend(struct device *dev)
 {
 	struct input_dev *input_dev = to_input_dev(dev);
@@ -1903,15 +1905,12 @@ static const struct dev_pm_ops input_dev_pm_ops = {
 	.poweroff	= input_dev_poweroff,
 	.restore	= input_dev_resume,
 };
-#endif /* CONFIG_PM */
 
 static const struct device_type input_dev_type = {
 	.groups		= input_dev_attr_groups,
 	.release	= input_dev_release,
 	.uevent		= input_dev_uevent,
-#ifdef CONFIG_PM_SLEEP
-	.pm		= &input_dev_pm_ops,
-#endif
+	.pm		= pm_sleep_ptr(&input_dev_pm_ops),
 };
 
 static char *input_devnode(const struct device *dev, umode_t *mode)
@@ -1919,7 +1918,7 @@ static char *input_devnode(const struct device *dev, umode_t *mode)
 	return kasprintf(GFP_KERNEL, "input/%s", dev_name(dev));
 }
 
-struct class input_class = {
+const struct class input_class = {
 	.name		= "input",
 	.devnode	= input_devnode,
 };
@@ -2630,17 +2629,15 @@ int input_get_new_minor(int legacy_base, unsigned int legacy_num,
 	 * locking is needed here.
 	 */
 	if (legacy_base >= 0) {
-		int minor = ida_simple_get(&input_ida,
-					   legacy_base,
-					   legacy_base + legacy_num,
-					   GFP_KERNEL);
+		int minor = ida_alloc_range(&input_ida, legacy_base,
+					    legacy_base + legacy_num - 1,
+					    GFP_KERNEL);
 		if (minor >= 0 || !allow_dynamic)
 			return minor;
 	}
 
-	return ida_simple_get(&input_ida,
-			      INPUT_FIRST_DYNAMIC_DEV, INPUT_MAX_CHAR_DEVICES,
-			      GFP_KERNEL);
+	return ida_alloc_range(&input_ida, INPUT_FIRST_DYNAMIC_DEV,
+			       INPUT_MAX_CHAR_DEVICES - 1, GFP_KERNEL);
 }
 EXPORT_SYMBOL(input_get_new_minor);
 
@@ -2653,7 +2650,7 @@ EXPORT_SYMBOL(input_get_new_minor);
  */
 void input_free_minor(unsigned int minor)
 {
-	ida_simple_remove(&input_ida, minor);
+	ida_free(&input_ida, minor);
 }
 EXPORT_SYMBOL(input_free_minor);
 

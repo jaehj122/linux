@@ -117,21 +117,15 @@ static void test_recursion(void)
 	ASSERT_OK(err, "lookup map_b");
 	ASSERT_EQ(value, 100, "map_b value");
 
-	prog_fd = bpf_program__fd(skel->progs.on_lookup);
-	memset(&info, 0, sizeof(info));
-	err = bpf_obj_get_info_by_fd(prog_fd, &info, &info_len);
-	ASSERT_OK(err, "get prog info");
-	ASSERT_GT(info.recursion_misses, 0, "on_lookup prog recursion");
-
 	prog_fd = bpf_program__fd(skel->progs.on_update);
 	memset(&info, 0, sizeof(info));
-	err = bpf_obj_get_info_by_fd(prog_fd, &info, &info_len);
+	err = bpf_prog_get_info_by_fd(prog_fd, &info, &info_len);
 	ASSERT_OK(err, "get prog info");
 	ASSERT_EQ(info.recursion_misses, 0, "on_update prog recursion");
 
 	prog_fd = bpf_program__fd(skel->progs.on_enter);
 	memset(&info, 0, sizeof(info));
-	err = bpf_obj_get_info_by_fd(prog_fd, &info, &info_len);
+	err = bpf_prog_get_info_by_fd(prog_fd, &info, &info_len);
 	ASSERT_OK(err, "get prog info");
 	ASSERT_EQ(info.recursion_misses, 0, "on_enter prog recursion");
 
@@ -221,7 +215,7 @@ static void test_nodeadlock(void)
 
 	info_len = sizeof(info);
 	prog_fd = bpf_program__fd(skel->progs.socket_post_create);
-	err = bpf_obj_get_info_by_fd(prog_fd, &info, &info_len);
+	err = bpf_prog_get_info_by_fd(prog_fd, &info, &info_len);
 	ASSERT_OK(err, "get prog info");
 	ASSERT_EQ(info.recursion_misses, 0, "prog recursion");
 

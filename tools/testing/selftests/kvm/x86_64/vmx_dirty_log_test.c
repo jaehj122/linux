@@ -73,7 +73,6 @@ int main(int argc, char *argv[])
 
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
-	struct kvm_run *run;
 	struct ucall uc;
 	bool done = false;
 
@@ -84,7 +83,6 @@ int main(int argc, char *argv[])
 	vm = vm_create_with_one_vcpu(&vcpu, l1_guest_code);
 	vmx = vcpu_alloc_vmx(vm, &vmx_pages_gva);
 	vcpu_args_set(vcpu, 1, vmx_pages_gva);
-	run = vcpu->run;
 
 	/* Add an extra memory slot for testing dirty logging */
 	vm_userspace_mem_region_add(vm, VM_MEM_SRC_ANONYMOUS,
@@ -117,10 +115,7 @@ int main(int argc, char *argv[])
 	while (!done) {
 		memset(host_test_mem, 0xaa, TEST_MEM_PAGES * 4096);
 		vcpu_run(vcpu);
-		TEST_ASSERT(run->exit_reason == KVM_EXIT_IO,
-			    "Unexpected exit reason: %u (%s),\n",
-			    run->exit_reason,
-			    exit_reason_str(run->exit_reason));
+		TEST_ASSERT_KVM_EXIT_REASON(vcpu, KVM_EXIT_IO);
 
 		switch (get_ucall(vcpu, &uc)) {
 		case UCALL_ABORT:
@@ -133,17 +128,17 @@ int main(int argc, char *argv[])
 			 */
 			kvm_vm_get_dirty_log(vm, TEST_MEM_SLOT_INDEX, bmap);
 			if (uc.args[1]) {
-				TEST_ASSERT(test_bit(0, bmap), "Page 0 incorrectly reported clean\n");
-				TEST_ASSERT(host_test_mem[0] == 1, "Page 0 not written by guest\n");
+				TEST_ASSERT(test_bit(0, bmap), "Page 0 incorrectly reported clean");
+				TEST_ASSERT(host_test_mem[0] == 1, "Page 0 not written by guest");
 			} else {
-				TEST_ASSERT(!test_bit(0, bmap), "Page 0 incorrectly reported dirty\n");
-				TEST_ASSERT(host_test_mem[0] == 0xaaaaaaaaaaaaaaaaULL, "Page 0 written by guest\n");
+				TEST_ASSERT(!test_bit(0, bmap), "Page 0 incorrectly reported dirty");
+				TEST_ASSERT(host_test_mem[0] == 0xaaaaaaaaaaaaaaaaULL, "Page 0 written by guest");
 			}
 
-			TEST_ASSERT(!test_bit(1, bmap), "Page 1 incorrectly reported dirty\n");
-			TEST_ASSERT(host_test_mem[4096 / 8] == 0xaaaaaaaaaaaaaaaaULL, "Page 1 written by guest\n");
-			TEST_ASSERT(!test_bit(2, bmap), "Page 2 incorrectly reported dirty\n");
-			TEST_ASSERT(host_test_mem[8192 / 8] == 0xaaaaaaaaaaaaaaaaULL, "Page 2 written by guest\n");
+			TEST_ASSERT(!test_bit(1, bmap), "Page 1 incorrectly reported dirty");
+			TEST_ASSERT(host_test_mem[4096 / 8] == 0xaaaaaaaaaaaaaaaaULL, "Page 1 written by guest");
+			TEST_ASSERT(!test_bit(2, bmap), "Page 2 incorrectly reported dirty");
+			TEST_ASSERT(host_test_mem[8192 / 8] == 0xaaaaaaaaaaaaaaaaULL, "Page 2 written by guest");
 			break;
 		case UCALL_DONE:
 			done = true;

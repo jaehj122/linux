@@ -228,7 +228,7 @@ static struct attribute *xfs_errortag_attrs[] = {
 };
 ATTRIBUTE_GROUPS(xfs_errortag);
 
-static struct kobj_type xfs_errortag_ktype = {
+static const struct kobj_type xfs_errortag_ktype = {
 	.release = xfs_sysfs_release,
 	.sysfs_ops = &xfs_errortag_sysfs_ops,
 	.default_groups = xfs_errortag_groups,
@@ -240,15 +240,15 @@ xfs_errortag_init(
 {
 	int ret;
 
-	mp->m_errortag = kmem_zalloc(sizeof(unsigned int) * XFS_ERRTAG_MAX,
-			KM_MAYFAIL);
+	mp->m_errortag = kzalloc(sizeof(unsigned int) * XFS_ERRTAG_MAX,
+				GFP_KERNEL | __GFP_RETRY_MAYFAIL);
 	if (!mp->m_errortag)
 		return -ENOMEM;
 
 	ret = xfs_sysfs_init(&mp->m_errortag_kobj, &xfs_errortag_ktype,
 				&mp->m_kobj, "errortag");
 	if (ret)
-		kmem_free(mp->m_errortag);
+		kfree(mp->m_errortag);
 	return ret;
 }
 
@@ -257,7 +257,7 @@ xfs_errortag_del(
 	struct xfs_mount	*mp)
 {
 	xfs_sysfs_del(&mp->m_errortag_kobj);
-	kmem_free(mp->m_errortag);
+	kfree(mp->m_errortag);
 }
 
 static bool

@@ -198,7 +198,6 @@ static void *vcpu_thread(void *arg)
 	struct ucall uc;
 	int old;
 	int r;
-	unsigned int exit_reason;
 
 	r = pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &old);
 	TEST_ASSERT(r == 0,
@@ -207,11 +206,8 @@ static void *vcpu_thread(void *arg)
 
 	fprintf(stderr, "vCPU thread running vCPU %u\n", vcpu->id);
 	vcpu_run(vcpu);
-	exit_reason = vcpu->run->exit_reason;
 
-	TEST_ASSERT(exit_reason == KVM_EXIT_IO,
-		    "vCPU %u exited with unexpected exit reason %u-%s, expected KVM_EXIT_IO",
-		    vcpu->id, exit_reason, exit_reason_str(exit_reason));
+	TEST_ASSERT_KVM_EXIT_REASON(vcpu, KVM_EXIT_IO);
 
 	if (get_ucall(vcpu, &uc) == UCALL_ABORT) {
 		TEST_ASSERT(false,
@@ -220,7 +216,7 @@ static void *vcpu_thread(void *arg)
 			    "Halting vCPU halted %lu times, woke %lu times, received %lu IPIs.\n"
 			    "Halter TPR=%#x PPR=%#x LVR=%#x\n"
 			    "Migrations attempted: %lu\n"
-			    "Migrations completed: %lu\n",
+			    "Migrations completed: %lu",
 			    vcpu->id, (const char *)uc.args[0],
 			    params->data->ipis_sent, params->data->hlt_count,
 			    params->data->wake_count,
@@ -292,7 +288,7 @@ void do_migrations(struct test_data_page *data, int run_secs, int delay_usecs,
 	}
 
 	TEST_ASSERT(nodes > 1,
-		    "Did not find at least 2 numa nodes. Can't do migration\n");
+		    "Did not find at least 2 numa nodes. Can't do migration");
 
 	fprintf(stderr, "Migrating amongst %d nodes found\n", nodes);
 
@@ -351,7 +347,7 @@ void do_migrations(struct test_data_page *data, int run_secs, int delay_usecs,
 				    wake_count != data->wake_count,
 				    "IPI, HLT and wake count have not increased "
 				    "in the last %lu seconds. "
-				    "HLTer is likely hung.\n", interval_secs);
+				    "HLTer is likely hung.", interval_secs);
 
 			ipis_sent = data->ipis_sent;
 			hlt_count = data->hlt_count;
@@ -385,7 +381,7 @@ void get_cmdline_args(int argc, char *argv[], int *run_secs,
 				    "-m adds calls to migrate_pages while vCPUs are running."
 				    " Default is no migrations.\n"
 				    "-d <delay microseconds> - delay between migrate_pages() calls."
-				    " Default is %d microseconds.\n",
+				    " Default is %d microseconds.",
 				    DEFAULT_RUN_SECS, DEFAULT_DELAY_USECS);
 		}
 	}

@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0
 # Makefile for the Linux sound card driver
+
 # Note that this will not work on kernal version 5.14
+=======
+# Upgrade to Pipewire for sound if your distro supports it!
+
 
 obj-$(CONFIG_SOUND) += soundcore.o
 obj-$(CONFIG_DMASOUND) += oss/dmasound/

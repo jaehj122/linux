@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 OR MIT */
 /**************************************************************************
  *
- * Copyright (c) 2009-2022 VMware, Inc., Palo Alto, CA., USA
+ * Copyright (c) 2009-2023 VMware, Inc., Palo Alto, CA., USA
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -254,40 +254,6 @@ void ttm_base_object_unref(struct ttm_base_object **p_base)
 	kref_put(&base->refcount, ttm_release_base);
 }
 
-/**
- * ttm_base_object_noref_lookup - look up a base object without reference
- * @tfile: The struct ttm_object_file the object is registered with.
- * @key: The object handle.
- *
- * This function looks up a ttm base object and returns a pointer to it
- * without refcounting the pointer. The returned pointer is only valid
- * until ttm_base_object_noref_release() is called, and the object
- * pointed to by the returned pointer may be doomed. Any persistent usage
- * of the object requires a refcount to be taken using kref_get_unless_zero().
- * Iff this function returns successfully it needs to be paired with
- * ttm_base_object_noref_release() and no sleeping- or scheduling functions
- * may be called inbetween these function callse.
- *
- * Return: A pointer to the object if successful or NULL otherwise.
- */
-struct ttm_base_object *
-ttm_base_object_noref_lookup(struct ttm_object_file *tfile, uint64_t key)
-{
-	struct vmwgfx_hash_item *hash;
-	int ret;
-
-	rcu_read_lock();
-	ret = ttm_tfile_find_ref_rcu(tfile, key, &hash);
-	if (ret) {
-		rcu_read_unlock();
-		return NULL;
-	}
-
-	__release(RCU);
-	return hlist_entry(hash, struct ttm_ref_object, hash)->obj;
-}
-EXPORT_SYMBOL(ttm_base_object_noref_lookup);
-
 struct ttm_base_object *ttm_base_object_lookup(struct ttm_object_file *tfile,
 					       uint64_t key)
 {
@@ -295,15 +261,16 @@ struct ttm_base_object *ttm_base_object_lookup(struct ttm_object_file *tfile,
 	struct vmwgfx_hash_item *hash;
 	int ret;
 
-	rcu_read_lock();
-	ret = ttm_tfile_find_ref_rcu(tfile, key, &hash);
+	spin_lock(&tfile->lock);
+	ret = ttm_tfile_find_ref(tfile, key, &hash);
 
 	if (likely(ret == 0)) {
 		base = hlist_entry(hash, struct ttm_ref_object, hash)->obj;
 		if (!kref_get_unless_zero(&base->refcount))
 			base = NULL;
 	}
-	rcu_read_unlock();
+	spin_unlock(&tfile->lock);
+
 
 	return base;
 }
@@ -681,7 +648,6 @@ out_unref:
  * @tfile: struct ttm_object_file identifying the caller
  * @size: The size of the dma_bufs we export.
  * @prime: The object to be initialized.
- * @shareable: See ttm_base_object_init
  * @type: See ttm_base_object_init
  * @refcount_release: See ttm_base_object_init
  *
@@ -689,10 +655,11 @@ out_unref:
  * for data sharing between processes and devices.
  */
 int ttm_prime_object_init(struct ttm_object_file *tfile, size_t size,
-			  struct ttm_prime_object *prime, bool shareable,
+			  struct ttm_prime_object *prime,
 			  enum ttm_object_type type,
 			  void (*refcount_release) (struct ttm_base_object **))
 {
+	bool shareable = !!(type == VMW_RES_SURFACE);
 	mutex_init(&prime->mutex);
 	prime->size = PAGE_ALIGN(size);
 	prime->real_type = type;

@@ -10,6 +10,7 @@
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include "avs.h"
+#include "control.h"
 #include "path.h"
 #include "topology.h"
 
@@ -86,7 +87,7 @@ static bool avs_test_hw_params(struct snd_pcm_hw_params *params,
 	return (params_rate(params) == fmt->sampling_freq &&
 		params_channels(params) == fmt->num_channels &&
 		params_physical_width(params) == fmt->bit_depth &&
-		params_width(params) == fmt->valid_bit_depth);
+		snd_pcm_hw_params_bits(params) == fmt->valid_bit_depth);
 }
 
 static struct avs_tplg_path *
@@ -236,11 +237,11 @@ static int avs_copier_create(struct avs_dev *adev, struct avs_path_module *mod)
 	/* Every config-BLOB contains gateway attributes. */
 	if (data_size)
 		cfg_size -= sizeof(cfg->gtw_cfg.config.attrs);
+	if (cfg_size > AVS_MAILBOX_SIZE)
+		return -EINVAL;
 
-	cfg = kzalloc(cfg_size, GFP_KERNEL);
-	if (!cfg)
-		return -ENOMEM;
-
+	cfg = adev->modcfg_buf;
+	memset(cfg, 0, cfg_size);
 	cfg->base.cpc = t->cfg_base->cpc;
 	cfg->base.ibs = t->cfg_base->ibs;
 	cfg->base.obs = t->cfg_base->obs;
@@ -260,7 +261,65 @@ static int avs_copier_create(struct avs_dev *adev, struct avs_path_module *mod)
 	ret = avs_dsp_init_module(adev, mod->module_id, mod->owner->instance_id,
 				  t->core_id, t->domain, cfg, cfg_size,
 				  &mod->instance_id);
-	kfree(cfg);
+	return ret;
+}
+
+static struct avs_control_data *avs_get_module_control(struct avs_path_module *mod)
+{
+	struct avs_tplg_module *t = mod->template;
+	struct avs_tplg_path_template *path_tmpl;
+	struct snd_soc_dapm_widget *w;
+	int i;
+
+	path_tmpl = t->owner->owner->owner;
+	w = path_tmpl->w;
+
+	for (i = 0; i < w->num_kcontrols; i++) {
+		struct avs_control_data *ctl_data;
+		struct soc_mixer_control *mc;
+
+		mc = (struct soc_mixer_control *)w->kcontrols[i]->private_value;
+		ctl_data = (struct avs_control_data *)mc->dobj.private;
+		if (ctl_data->id == t->ctl_id)
+			return ctl_data;
+	}
+
+	return NULL;
+}
+
+static int avs_peakvol_create(struct avs_dev *adev, struct avs_path_module *mod)
+{
+	struct avs_tplg_module *t = mod->template;
+	struct avs_control_data *ctl_data;
+	struct avs_peakvol_cfg *cfg;
+	int volume = S32_MAX;
+	size_t cfg_size;
+	int ret;
+
+	ctl_data = avs_get_module_control(mod);
+	if (ctl_data)
+		volume = ctl_data->volume;
+
+	/* As 2+ channels controls are unsupported, have a single block for all channels. */
+	cfg_size = struct_size(cfg, vols, 1);
+	if (cfg_size > AVS_MAILBOX_SIZE)
+		return -EINVAL;
+
+	cfg = adev->modcfg_buf;
+	memset(cfg, 0, cfg_size);
+	cfg->base.cpc = t->cfg_base->cpc;
+	cfg->base.ibs = t->cfg_base->ibs;
+	cfg->base.obs = t->cfg_base->obs;
+	cfg->base.is_pages = t->cfg_base->is_pages;
+	cfg->base.audio_fmt = *t->in_fmt;
+	cfg->vols[0].target_volume = volume;
+	cfg->vols[0].channel_id = AVS_ALL_CHANNELS_MASK;
+	cfg->vols[0].curve_type = AVS_AUDIO_CURVE_NONE;
+	cfg->vols[0].curve_duration = 0;
+
+	ret = avs_dsp_init_module(adev, mod->module_id, mod->owner->instance_id, t->core_id,
+				  t->domain, cfg, cfg_size, &mod->instance_id);
+
 	return ret;
 }
 
@@ -418,12 +477,13 @@ static int avs_modext_create(struct avs_dev *adev, struct avs_path_module *mod)
 	int ret, i;
 
 	num_pins = tcfg->generic.num_input_pins + tcfg->generic.num_output_pins;
-	cfg_size = sizeof(*cfg) + sizeof(*cfg->pin_fmts) * num_pins;
+	cfg_size = struct_size(cfg, pin_fmts, num_pins);
 
-	cfg = kzalloc(cfg_size, GFP_KERNEL);
-	if (!cfg)
-		return -ENOMEM;
+	if (cfg_size > AVS_MAILBOX_SIZE)
+		return -EINVAL;
 
+	cfg = adev->modcfg_buf;
+	memset(cfg, 0, cfg_size);
 	cfg->base.cpc = t->cfg_base->cpc;
 	cfg->base.ibs = t->cfg_base->ibs;
 	cfg->base.obs = t->cfg_base->obs;
@@ -445,7 +505,6 @@ static int avs_modext_create(struct avs_dev *adev, struct avs_path_module *mod)
 	ret = avs_dsp_init_module(adev, mod->module_id, mod->owner->instance_id,
 				  t->core_id, t->domain, cfg, cfg_size,
 				  &mod->instance_id);
-	kfree(cfg);
 	return ret;
 }
 
@@ -465,6 +524,8 @@ static struct avs_module_create avs_module_create[] = {
 	{ &AVS_MIXOUT_MOD_UUID, avs_modbase_create },
 	{ &AVS_KPBUFF_MOD_UUID, avs_modbase_create },
 	{ &AVS_COPIER_MOD_UUID, avs_copier_create },
+	{ &AVS_PEAKVOL_MOD_UUID, avs_peakvol_create },
+	{ &AVS_GAIN_MOD_UUID, avs_peakvol_create },
 	{ &AVS_MICSEL_MOD_UUID, avs_micsel_create },
 	{ &AVS_MUX_MOD_UUID, avs_mux_create },
 	{ &AVS_UPDWMIX_MOD_UUID, avs_updown_mix_create },
@@ -484,6 +545,33 @@ static int avs_path_module_type_create(struct avs_dev *adev, struct avs_path_mod
 			return avs_module_create[i].create(adev, mod);
 
 	return avs_modext_create(adev, mod);
+}
+
+static int avs_path_module_send_init_configs(struct avs_dev *adev, struct avs_path_module *mod)
+{
+	struct avs_soc_component *acomp;
+
+	acomp = to_avs_soc_component(mod->template->owner->owner->owner->owner->comp);
+
+	u32 num_ids = mod->template->num_config_ids;
+	u32 *ids = mod->template->config_ids;
+
+	for (int i = 0; i < num_ids; i++) {
+		struct avs_tplg_init_config *config = &acomp->tplg->init_configs[ids[i]];
+		size_t len = config->length;
+		void *data = config->data;
+		u32 param = config->param;
+		int ret;
+
+		ret = avs_ipc_set_large_config(adev, mod->module_id, mod->instance_id,
+					       param, data, len);
+		if (ret) {
+			dev_err(adev->dev, "send initial module config failed: %d\n", ret);
+			return AVS_IPC_RET(ret);
+		}
+	}
+
+	return 0;
 }
 
 static void avs_path_module_free(struct avs_dev *adev, struct avs_path_module *mod)
@@ -515,6 +603,12 @@ avs_path_module_create(struct avs_dev *adev,
 	ret = avs_path_module_type_create(adev, mod);
 	if (ret) {
 		dev_err(adev->dev, "module-type create failed: %d\n", ret);
+		kfree(mod);
+		return ERR_PTR(ret);
+	}
+
+	ret = avs_path_module_send_init_configs(adev, mod);
+	if (ret) {
 		kfree(mod);
 		return ERR_PTR(ret);
 	}

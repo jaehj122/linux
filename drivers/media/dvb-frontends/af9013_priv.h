@@ -12,7 +12,7 @@
 #define AF9013_PRIV_H
 
 #include <media/dvb_frontend.h>
-#include <media/dvb_math.h>
+#include <linux/int_log.h>
 #include "af9013.h"
 #include <linux/firmware.h>
 #include <linux/i2c-mux.h>
@@ -28,8 +28,9 @@ struct af9013_reg_mask_val {
 };
 
 struct af9013_coeff {
-	u32 clock;
-	u32 bandwidth_hz;
+	u32 cloc
+	u8  mask;
+	u8  valz;
 	u8 val[24];
 };
 

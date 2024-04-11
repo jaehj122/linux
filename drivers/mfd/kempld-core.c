@@ -349,7 +349,7 @@ static ssize_t pld_version_show(struct device *dev,
 {
 	struct kempld_device_data *pld = dev_get_drvdata(dev);
 
-	return scnprintf(buf, PAGE_SIZE, "%s\n", pld->info.version);
+	return sysfs_emit(buf, "%s\n", pld->info.version);
 }
 
 static ssize_t pld_specification_show(struct device *dev,
@@ -357,8 +357,7 @@ static ssize_t pld_specification_show(struct device *dev,
 {
 	struct kempld_device_data *pld = dev_get_drvdata(dev);
 
-	return scnprintf(buf, PAGE_SIZE, "%d.%d\n", pld->info.spec_major,
-		       pld->info.spec_minor);
+	return sysfs_emit(buf, "%d.%d\n", pld->info.spec_major, pld->info.spec_minor);
 }
 
 static ssize_t pld_type_show(struct device *dev,
@@ -366,7 +365,7 @@ static ssize_t pld_type_show(struct device *dev,
 {
 	struct kempld_device_data *pld = dev_get_drvdata(dev);
 
-	return scnprintf(buf, PAGE_SIZE, "%s\n", kempld_get_type_string(pld));
+	return sysfs_emit(buf, "%s\n", kempld_get_type_string(pld));
 }
 
 static DEVICE_ATTR_RO(pld_version);
@@ -429,50 +428,13 @@ static int kempld_detect_device(struct kempld_device_data *pld)
 #ifdef CONFIG_ACPI
 static int kempld_get_acpi_data(struct platform_device *pdev)
 {
-	struct list_head resource_list;
-	struct resource *resources;
-	struct resource_entry *rentry;
 	struct device *dev = &pdev->dev;
-	struct acpi_device *acpi_dev = ACPI_COMPANION(dev);
 	const struct kempld_platform_data *pdata;
 	int ret;
-	int count;
 
 	pdata = acpi_device_get_match_data(dev);
 	ret = platform_device_add_data(pdev, pdata,
 				       sizeof(struct kempld_platform_data));
-	if (ret)
-		return ret;
-
-	INIT_LIST_HEAD(&resource_list);
-	ret = acpi_dev_get_resources(acpi_dev, &resource_list, NULL, NULL);
-	if (ret < 0)
-		goto out;
-
-	count = ret;
-
-	if (count == 0) {
-		ret = platform_device_add_resources(pdev, pdata->ioresource, 1);
-		goto out;
-	}
-
-	resources = devm_kcalloc(&acpi_dev->dev, count, sizeof(*resources),
-				 GFP_KERNEL);
-	if (!resources) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	count = 0;
-	list_for_each_entry(rentry, &resource_list, node) {
-		memcpy(&resources[count], rentry->res,
-		       sizeof(*resources));
-		count++;
-	}
-	ret = platform_device_add_resources(pdev, resources, count);
-
-out:
-	acpi_dev_free_resource_list(&resource_list);
 
 	return ret;
 }
@@ -536,7 +498,7 @@ static int kempld_probe(struct platform_device *pdev)
 	return kempld_detect_device(pld);
 }
 
-static int kempld_remove(struct platform_device *pdev)
+static void kempld_remove(struct platform_device *pdev)
 {
 	struct kempld_device_data *pld = platform_get_drvdata(pdev);
 	const struct kempld_platform_data *pdata = dev_get_platdata(pld->dev);
@@ -545,8 +507,6 @@ static int kempld_remove(struct platform_device *pdev)
 
 	mfd_remove_devices(&pdev->dev);
 	pdata->release_hardware_mutex(pld);
-
-	return 0;
 }
 
 #ifdef CONFIG_ACPI
@@ -564,7 +524,7 @@ static struct platform_driver kempld_driver = {
 		.acpi_match_table = ACPI_PTR(kempld_acpi_table),
 	},
 	.probe		= kempld_probe,
-	.remove		= kempld_remove,
+	.remove_new	= kempld_remove,
 };
 
 static const struct dmi_system_id kempld_dmi_table[] __initconst = {

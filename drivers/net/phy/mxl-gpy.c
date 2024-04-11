@@ -12,6 +12,7 @@
 #include <linux/mutex.h>
 #include <linux/phy.h>
 #include <linux/polynomial.h>
+#include <linux/property.h>
 #include <linux/netdevice.h>
 
 /* PHY ID */
@@ -106,6 +107,13 @@ struct gpy_priv {
 
 	u8 fw_major;
 	u8 fw_minor;
+
+	/* It takes 3 seconds to fully switch out of loopback mode before
+	 * it can safely re-enter loopback mode. Record the time when
+	 * loopback is disabled. Check and wait if necessary before loopback
+	 * is enabled.
+	 */
+	u64 lb_dis_to;
 };
 
 static const struct {
@@ -174,7 +182,7 @@ static umode_t gpy_hwmon_is_visible(const void *data,
 	return 0444;
 }
 
-static const struct hwmon_channel_info *gpy_hwmon_info[] = {
+static const struct hwmon_channel_info * const gpy_hwmon_info[] = {
 	HWMON_CHANNEL_INFO(temp, HWMON_T_INPUT),
 	NULL
 };
@@ -266,11 +274,12 @@ static int gpy_config_init(struct phy_device *phydev)
 	return ret < 0 ? ret : 0;
 }
 
-static bool gpy_has_broken_mdint(struct phy_device *phydev)
+static int gpy21x_config_init(struct phy_device *phydev)
 {
-	/* At least these PHYs are known to have broken interrupt handling */
-	return phydev->drv->phy_id == PHY_ID_GPY215B ||
-	       phydev->drv->phy_id == PHY_ID_GPY215C;
+	__set_bit(PHY_INTERFACE_MODE_2500BASEX, phydev->possible_interfaces);
+	__set_bit(PHY_INTERFACE_MODE_SGMII, phydev->possible_interfaces);
+
+	return gpy_config_init(phydev);
 }
 
 static int gpy_probe(struct phy_device *phydev)
@@ -291,6 +300,9 @@ static int gpy_probe(struct phy_device *phydev)
 		return -ENOMEM;
 	phydev->priv = priv;
 	mutex_init(&priv->mbox_lock);
+
+	if (!device_property_present(dev, "maxlinear,use-broken-interrupts"))
+		phydev->dev_flags |= PHY_F_NO_IRQ;
 
 	fw_version = phy_read(phydev, PHY_FWV);
 	if (fw_version < 0)
@@ -647,11 +659,9 @@ static irqreturn_t gpy_handle_interrupt(struct phy_device *phydev)
 	 * frame. Therefore, polling is the best we can do and won't do any more
 	 * harm.
 	 * It was observed that this bug happens on link state and link speed
-	 * changes on a GPY215B and GYP215C independent of the firmware version
-	 * (which doesn't mean that this list is exhaustive).
+	 * changes independent of the firmware version.
 	 */
-	if (gpy_has_broken_mdint(phydev) &&
-	    (reg & (PHY_IMASK_LSTC | PHY_IMASK_LSPC))) {
+	if (reg & (PHY_IMASK_LSTC | PHY_IMASK_LSPC)) {
 		reg = gpy_mbox_read(phydev, REG_GPIO0_OUT);
 		if (reg < 0) {
 			phy_error(phydev);
@@ -764,18 +774,34 @@ static void gpy_get_wol(struct phy_device *phydev,
 
 static int gpy_loopback(struct phy_device *phydev, bool enable)
 {
+	struct gpy_priv *priv = phydev->priv;
+	u16 set = 0;
 	int ret;
 
-	ret = phy_modify(phydev, MII_BMCR, BMCR_LOOPBACK,
-			 enable ? BMCR_LOOPBACK : 0);
-	if (!ret) {
-		/* It takes some time for PHY device to switch
-		 * into/out-of loopback mode.
-		 */
-		msleep(100);
+	if (enable) {
+		u64 now = get_jiffies_64();
+
+		/* wait until 3 seconds from last disable */
+		if (time_before64(now, priv->lb_dis_to))
+			msleep(jiffies64_to_msecs(priv->lb_dis_to - now));
+
+		set = BMCR_LOOPBACK;
 	}
 
-	return ret;
+	ret = phy_modify(phydev, MII_BMCR, BMCR_LOOPBACK, set);
+	if (ret <= 0)
+		return ret;
+
+	if (enable) {
+		/* It takes some time for PHY device to switch into
+		 * loopback mode.
+		 */
+		msleep(100);
+	} else {
+		priv->lb_dis_to = get_jiffies_64() + HZ * 3;
+	}
+
+	return 0;
 }
 
 static int gpy115_loopback(struct phy_device *phydev, bool enable)
@@ -849,7 +875,7 @@ static struct phy_driver gpy_drivers[] = {
 		.phy_id_mask	= PHY_ID_GPY21xB_MASK,
 		.name		= "Maxlinear Ethernet GPY211B",
 		.get_features	= genphy_c45_pma_read_abilities,
-		.config_init	= gpy_config_init,
+		.config_init	= gpy21x_config_init,
 		.probe		= gpy_probe,
 		.suspend	= genphy_suspend,
 		.resume		= genphy_resume,
@@ -866,7 +892,7 @@ static struct phy_driver gpy_drivers[] = {
 		PHY_ID_MATCH_MODEL(PHY_ID_GPY211C),
 		.name		= "Maxlinear Ethernet GPY211C",
 		.get_features	= genphy_c45_pma_read_abilities,
-		.config_init	= gpy_config_init,
+		.config_init	= gpy21x_config_init,
 		.probe		= gpy_probe,
 		.suspend	= genphy_suspend,
 		.resume		= genphy_resume,
@@ -884,7 +910,7 @@ static struct phy_driver gpy_drivers[] = {
 		.phy_id_mask	= PHY_ID_GPY21xB_MASK,
 		.name		= "Maxlinear Ethernet GPY212B",
 		.get_features	= genphy_c45_pma_read_abilities,
-		.config_init	= gpy_config_init,
+		.config_init	= gpy21x_config_init,
 		.probe		= gpy_probe,
 		.suspend	= genphy_suspend,
 		.resume		= genphy_resume,
@@ -901,7 +927,7 @@ static struct phy_driver gpy_drivers[] = {
 		PHY_ID_MATCH_MODEL(PHY_ID_GPY212C),
 		.name		= "Maxlinear Ethernet GPY212C",
 		.get_features	= genphy_c45_pma_read_abilities,
-		.config_init	= gpy_config_init,
+		.config_init	= gpy21x_config_init,
 		.probe		= gpy_probe,
 		.suspend	= genphy_suspend,
 		.resume		= genphy_resume,
@@ -919,7 +945,7 @@ static struct phy_driver gpy_drivers[] = {
 		.phy_id_mask	= PHY_ID_GPYx15B_MASK,
 		.name		= "Maxlinear Ethernet GPY215B",
 		.get_features	= genphy_c45_pma_read_abilities,
-		.config_init	= gpy_config_init,
+		.config_init	= gpy21x_config_init,
 		.probe		= gpy_probe,
 		.suspend	= genphy_suspend,
 		.resume		= genphy_resume,
@@ -936,7 +962,7 @@ static struct phy_driver gpy_drivers[] = {
 		PHY_ID_MATCH_MODEL(PHY_ID_GPY215C),
 		.name		= "Maxlinear Ethernet GPY215C",
 		.get_features	= genphy_c45_pma_read_abilities,
-		.config_init	= gpy_config_init,
+		.config_init	= gpy21x_config_init,
 		.probe		= gpy_probe,
 		.suspend	= genphy_suspend,
 		.resume		= genphy_resume,
